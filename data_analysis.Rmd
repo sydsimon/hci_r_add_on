@@ -1,0 +1,197 @@
+---
+title: "cis 454 dataset"
+author: '61268340'
+date: "2025-03-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(datasets)
+library(gapminder)
+library(gt) 
+library(gtExtras)
+```
+
+
+```{r}
+hiVote = read_csv('hiVotes.csv')
+employees = read_csv('employees.csv')
+scoreMetadata = read_csv('scoreMetadata.csv')
+scoreVotes = read_csv('scoreVotes.csv')
+companyMetadata = read_csv('companyMetadata.csv')
+```
+
+# Computing Quantitative Measures
+
+# #1
+
+```{r}
+hiVoteInfo = hiVote %>% summarise(mean = mean(hiVote), std = sd(hiVote))
+
+hiVoteInfo
+```
+
+```{r}
+scoreVoteInfo = scoreVotes %>% summarise(mean = mean(scoreVote), std = sd(scoreVote))
+
+scoreVoteInfo
+```
+```{r}
+#merge score votes and the metadata to be able to filter by score name and get info
+votes_joined <- left_join(scoreVotes, scoreMetadata, by = c("scoreId" = "scoreId")) 
+
+votes_joined %>%
+  filter(name == "Wellbeing") %>%
+  summarise(mean = mean(scoreVote), std = sd(scoreVote))
+
+```
+
+
+```{r}
+# get quantitative stats for specific question
+votes_joined %>% 
+  filter(question == "On a scale from 1 to 10, how would you rate the work-related stress?") %>%
+  summarise(mean = mean(scoreVote), std = sd(scoreVote))
+```
+
+##2
+
+```{r}
+# number of companies per industry represented in this dataset, filtering for only the top 10 most frequent industries
+
+#getting top industries
+top_industries <- companyMetadata %>% 
+  group_by(industry) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  head(10)
+
+# Plotting Data
+ggplot(top_industries, aes(x = industry, y = count)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() + 
+  labs(
+    title = "Top 10 Industries by Company Count",
+    x = "Industry",
+    y = "Number of Companies"
+  ) +
+  theme_bw(base_size = 14)  # Increases font size for clarity
+
+```
+
+## 3
+
+```{r}
+# Create box plots showing distribution of scoreVote by the different score categories 
+votes_joined %>%
+  ggplot( aes(x = name, y = scoreVote)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribution of Score Votes by Score Category",
+    x = "Score Category",
+    y = "Vote Score"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## 4
+```{r}
+# filter joined score data for "Wellbeing"
+wellbeing_scores <- votes_joined %>%
+  filter(name == "Wellbeing")
+
+# join with company metadata
+wellbeing_with_company <- wellbeing_scores %>%
+  left_join(companyMetadata, by = "companyId")
+
+# compute mean wellbeing score per company
+avg_scores <- wellbeing_with_company %>%
+  group_by(companyId) %>%
+  summarise(avg_wellbeing = mean(scoreVote, na.rm = TRUE)) %>%
+  arrange(desc(avg_wellbeing)) 
+
+avg_scores %>% head(1)
+```
+
+## 5
+```{r}
+# filter for the two companies and joing with hiVote
+filtered_data <- companyMetadata %>%
+  filter(industry %in% c("ARTS_ENTERTAINMENT_RECREATION", "FINANCIAL_SERVICES_INSURANCE")) %>%
+  left_join(hiVote, by=("companyId" = "companyId" ))
+```
+
+```{r}
+# t test
+t_test_result <- t.test(
+  hiVote ~ industry,
+  data = filtered_data,
+  alternative = "greater" 
+)
+
+t_test_result
+```
+
+
+## 6 
+```{r}
+# join company data and hit vote score on company id
+company_hiVote <- companyMetadata %>%
+  left_join(hiVote, by=("companyId" = "companyId" ))
+
+# company with highest happiness (median)
+company_hiVote %>%
+  group_by(companyId) %>%
+  summarise(median_hiVote = median(hiVote, na.rm = TRUE), count = n()) %>%
+  arrange(desc(median_hiVote)) %>%
+  slice_head(n = 1)
+```
+
+## 7 
+```{r}
+# company with highest happiness (mean)
+company_hiVote %>%
+  group_by(companyId) %>%
+  summarise(mean_hiVote = mean(hiVote, na.rm = TRUE), count = n()) %>%
+  arrange(desc(mean_hiVote)) %>%
+  slice_head(n = 1)
+```
+
+## 8a
+
+```{r}
+# Run a one-way ANOVA to determine whether significant differences in mean hiVote exist across industries. Report the p-value and interpret the results.
+
+anova_model <- aov(hiVote ~ industry, data = company_hiVote)
+summary(anova_model)
+```
+
+##8b
+```{r}
+
+unique(company_hiVote$industry)
+
+# Turkey test
+#TukeyHSD(anova_model)
+
+```
+
+## 9
+
+```{r}
+score_company <- left_join(scoreVotes, companyMetadata, by = "companyId")
+
+# linear regression
+lm_model <- lm(scoreVote ~ timezone, data = score_company)
+summary(lm_model)
+```
+
+
