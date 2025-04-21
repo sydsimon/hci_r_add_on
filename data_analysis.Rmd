@@ -195,3 +195,98 @@ summary(lm_model)
 ```
 
 
+# Part 2
+
+## 2
+```{r}
+colnames(companyMetadata)
+
+colnames(hiVote)
+
+colnames(scoreVotes)
+
+colnames(scoreMetadata)
+
+colnames(employees)
+```
+
+```{r}
+companyMetadata %>% 
+  group_by(industry) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) 
+```
+
+```{r}
+head(employees)
+```
+
+
+## 4 
+```{r}
+# nefarious
+company_hiVote %>%
+  filter(companyId == "57908a2622881200033b34d7") %>%
+  mutate(hiVote = as.numeric(hiVote)) %>%
+  summarise(mean_hiVote = mean(hiVote, na.rm = TRUE),
+            median_hiVote = median(hiVote, na.rm = TRUE),
+            n = n())
+```
+
+
+
+```{r}
+# rival
+recently_left <- employees %>%
+  filter(deleted == TRUE) %>%
+  inner_join(company_hiVote, by = c("companyId", "employeeId"))
+
+still_here <- employees %>%
+  filter(deleted == FALSE) %>%
+  inner_join(company_hiVote, by = c("companyId", "employeeId"))
+
+left_mean <- recently_left %>%
+  summarise(mean_hiVote = mean(hiVote, na.rm = TRUE))
+
+still_here_mean <- still_here %>%
+  summarise(mean_hiVote = mean(hiVote, na.rm = TRUE))
+
+```
+
+```{r}
+still_here_mean
+```
+
+
+```{r}
+left_mean
+```
+
+
+## 5
+```{r}
+#Does employee happiness vary significantly by time zone?
+
+hi_with_timezone <- hiVote %>%
+  left_join(companyMetadata, by = "companyId") %>%
+  filter(!is.na(timezone), !is.na(hiVote))  
+```
+
+```{r}
+anova_model <- aov(hiVote ~ timezone, data = hi_with_timezone)
+summary(anova_model)
+```
+
+
+```{r}
+ggplot(hi_with_timezone, aes(x = timezone, y = hiVote)) +
+  geom_boxplot(fill = "lightblue") +
+  coord_flip() +
+  labs(
+    title = "Distribution of Happiness by Time Zone",
+    x = "Time Zone",
+    y = "hiVote"
+  ) +
+  theme_bw()
+```
+
